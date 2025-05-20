@@ -1,0 +1,12 @@
+tt.*
+.tests
+doc/tags
+debug
+.repro
+foo.*
+*.log
+data
+*.lua~
+*.swp
+*.bak
+*/lazy-lock.json
