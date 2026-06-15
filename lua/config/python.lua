@@ -13,20 +13,32 @@ vim.api.nvim_create_autocmd("BufEnter", {
   end,
 })
 
--- Ejecutar el archivo actual con el venv si existe
+-- Ejecutar el archivo actual con el venv si existe y copiar PNR al clipboard
 vim.keymap.set("n", "<leader>rr", function()
-  local cwd = vim.fn.getcwd()
-  local venv_python = cwd .. "/venv/bin/python"
-  local fallback = "python"
   local file = vim.fn.expand("%")
-  local python_exec = vim.fn.filereadable(venv_python) == 1 and venv_python or fallback
+  local venv_python = vim.fn.getcwd() .. "/venv/bin/python"
+  local python_exec = vim.fn.filereadable(venv_python) == 1 and venv_python or "python"
 
-  -- Abrir la terminal flotante estilo <leader>ft
-  require("lazyvim.util").terminal(nil, { cwd = require("lazyvim.util").root() })
+  local terminal = Snacks.terminal.open(
+    { python_exec, file },
+    { cwd = LazyVim.root(), auto_close = false }
+  )
 
-  -- Enviar el comando dentro de la terminal
-  -- Usamos un pequeño retardo para asegurar que la terminal esté lista
-  vim.defer_fn(function()
-    vim.fn.chansend(vim.b.terminal_job_id, python_exec .. " " .. file .. "\n")
-  end, 100)
-end, { desc = "Ejecutar script Python en terminal flotante (venv)" })
+  vim.api.nvim_create_autocmd("TermClose", {
+    buffer = terminal.buf,
+    once = true,
+    callback = function()
+      local lines = vim.api.nvim_buf_get_lines(terminal.buf, 0, -1, false)
+      for i = #lines, 1, -1 do
+        local pnr = lines[i]:match("^PNR=(%S+)$")
+        if pnr then
+          vim.fn.setreg("+", pnr)
+          vim.schedule(function()
+            vim.notify("✅ PNR: " .. pnr .. " (copiado al clipboard)", vim.log.levels.INFO)
+          end)
+          break
+        end
+      end
+    end,
+  })
+end, { desc = "Ejecutar script Python (terminal + PNR auto-copiado)" })
